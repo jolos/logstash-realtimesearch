@@ -22,7 +22,17 @@
 	<link rel="stylesheet" href="@routes.Assets.at("stylesheets/base.css")">
 	<link rel="stylesheet" href="@routes.Assets.at("stylesheets/skeleton.css")">
 	<link rel="stylesheet" href="@routes.Assets.at("stylesheets/layout.css")">
+	<link rel="stylesheet" href="@routes.Assets.at("stylesheets/reset.css")" type="text/css" media="screen" charset="utf-8">
+	<link rel="stylesheet" href="@routes.Assets.at("stylesheets/icons.css")" type="text/css" media="screen" charset="utf-8">
+	<link rel="stylesheet" href="@routes.Assets.at("stylesheets/workspace.css")" type="text/css" media="screen" charset="utf-8">
 
+	<!--[if lte IE 7]><!-->
+    	<link href="@routes.Assets.at("stylesheets/visualsearch.css")" media="screen" rel="stylesheet" type="text/css" />
+    	<!--<![endif]-->
+	<!--[if (!IE)|(gte IE 8)]><!-->
+        <link href="@routes.Assets.at("stylesheets/visualsearch-datauri.css")" media="screen" rel="stylesheet" type="text/css" />
+	  <!--<![endif]-->
+	 
 	<!--[if lt IE 9]>
 		<script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
 	<![endif]-->
@@ -46,14 +56,14 @@
 
 	<div class="container">
 		<div class="sixteen columns">
-			<h1 class="remove-bottom" style="margin-top: 40px">Skeleton</h1>
-			<h5>Version 1.1</h5>
+			<h1 class="remove-bottom" style="margin-top: 40px">Messages</h1>
+			<h5>Realtime searching of your logs! // try doing smth like : logger "hello world" in your console</h5>
 			<hr />
-		</div>
+	 	</div>
 		<div class="column">
-			<h3>About Skeleton?</h3>
-			<p>Skeleton is a small collection of well-organized CSS &amp; JS files that can help you rapidly develop sites that look beautiful at any size, be it a 17" laptop screen or an iPhone. It's based on a responsive grid, but also provides very basic CSS for typography, buttons, tabs, forms and media queries. Go ahead, resize this super basic page to see the grid in action.</p>
-			<hr />
+			<div class="visual_search" style="min-width: 800px; margin-bottom: 20px; display: inline-block"></div> <button style="float:right; margin-left: 20px;" onclick="search()">Search Your Logs!</button>
+	       	</div>
+		<div id="messages" class="column">
 		</div>
 	</div><!-- container -->
 
@@ -62,11 +72,96 @@
 	<!-- JS
 	================================================== -->
 	<script src="http://code.jquery.com/jquery-1.7.2.min.js"></script>
+	<script src="@routes.Assets.at("javascripts/jquery.ui.core.js")" type="text/javascript" charset="utf-8"></script>
+	<script src="@routes.Assets.at("javascripts/jquery.ui.widget.js")" type="text/javascript" charset="utf-8"></script>
+	<script src="@routes.Assets.at("javascripts/jquery.ui.position.js")" type="text/javascript" charset="utf-8"></script>
+	<script src="@routes.Assets.at("javascripts/jquery.ui.autocomplete.js")" type="text/javascript" charset="utf-8"></script>
 	<script src="@routes.Assets.at("javascripts/tabs.js")"></script>
+	<script src="@routes.Assets.at("javascripts/underscore.js")"></script>
+	<script src="@routes.Assets.at("javascripts/json2.js")"></script>
+	<script src="@routes.Assets.at("javascripts/backbone.js")"></script>
+	<script src="@routes.Assets.at("javascripts/visualsearch.js")" type="text/javascript" charset="utf-8"></script>
+   	<script src="@routes.Assets.at("javascripts/views/search_box.js")" type="text/javascript" charset="utf-8"></script>
+     	<script src="@routes.Assets.at("javascripts/views/search_facet.js")" type="text/javascript" charset="utf-8"></script>
+	<script src="@routes.Assets.at("javascripts/views/search_input.js")" type="text/javascript" charset="utf-8"></script>
+	<script src="@routes.Assets.at("javascripts/models/search_facets.js")" type="text/javascript" charset="utf-8"></script>
+	<script src="@routes.Assets.at("javascripts/models/search_query.js")" type="text/javascript" charset="utf-8"></script>
+        <script src="@routes.Assets.at("javascripts/utils/backbone_extensions.js")" type="text/javascript" charset="utf-8"></script>
+        <script src="@routes.Assets.at("javascripts/utils/hotkeys.js")" type="text/javascript" charset="utf-8"></script>
+	<script src="@routes.Assets.at("javascripts/utils/jquery_extensions.js")" type="text/javascript" charset="utf-8"></script>
+	<script src="@routes.Assets.at("javascripts/utils/search_parser.js")" type="text/javascript" charset="utf-8"></script>
+	<script src="@routes.Assets.at("javascripts/utils/inflector.js")" type="text/javascript" charset="utf-8"></script>
+        <script src="@routes.Assets.at("javascripts/templates/templates.js")" type="text/javascript" charset="utf-8"></script>
+	<script type="text/javascript" charset="utf-8">
+	  $(document).ready(function() {
+	      window.visualSearch = VS.init({
+		    container : $('.visual_search'),
+		    query     : "",
+	      	    unquotable : [
+			  'text',
+		      	  'account',
+			  'filter',
+		          'access'
+		    ],
+		    callbacks : {
+			search :function(){},
+			facetMatches : function(callback) {
+				callback(['index',"type","message"]);
+			},
+		    valueMatches : function(facet, searchTerm, callback) {
+			    switch(facet){
+			   	case 'index':
+			       		callback([
+						{ value: "logstash", label: "logstash"}
+					]);
+					break;
+				case "type":
+					callback([
+						{ value: "syslog", label: "syslog"}
+					]);
+			    }
+			}
+	      	    }
+	       });
+          });
+       </script>
 	<script type="text/javascript">
-		var ws = new WebSocket("ws://192.168.1.6:9000/query")
+			function search(){
+				var facets = visualSearch.searchQuery.facets();
+				var query = {"query" : {"term": {}}}
+				_.each(facets,function(item,i){
+					_.each(item,function(value,field){
+						if( field != "index"){
+							var key="@{ "@" }"+field;
+							query["query"]['term'][key] = value ;
+						} else {
+							query['index'] = value
+						}
+					});
+				});
+
+				ws.send(JSON.stringify(query));
+
+			}
+			$(function() {
+			window.Message = Backbone.Model.extend({
+			});
+			window.MessageList = Backbone.Collection.extend({
+			      model : Message,
+			});
+
+			window.messages = new MessageList;
+			window.messages.bind('add',function(model,list,idx){
+				var msg = model.get("@{ "@message"}");	       
+				$('#messages').append("<h4 style='width: 100%'>"+ idx.index+". "+msg+"</h4>")
+
+			});
+
+		});
+		window.ws = new WebSocket("ws://localhost:9000/query/logstash")
 		ws.onmessage = function(evt){
-			console.log(evt.data);
+			var json = JSON.parse(evt.data)
+			messages.add(new Message(json))
 		}
 	</script>
 

@@ -1,6 +1,7 @@
 package controllers
 import play.api._
 import play.api.mvc._
+import play.api.mvc.BodyParser
 import play.api.libs.iteratee._
 import play.api.libs.concurrent._
 import play.api.libs.json._
@@ -27,22 +28,16 @@ object Application extends Controller {
     Ok(views.html.index("Your new application is ready."))
   }
   
-  def query(index: String,identifier: String) = WebSocket.async[JsValue] { request => 
-    // send registerquerymessage to master actor 
-   
-    val qjson ="{ \"query\" : { \"term\" : { \"@type\" : \"syslog\" } } }"
-    val index = "logstash"
-    val rand = new Random()
-    val identifier = "lgstshquery"+rand.nextInt()
-    // register test query
-    (master ? RegisterQueryMessage(qjson,index,identifier)).asPromise.map {
-            case QueryRegistered(channel) =>
-              // Create an Iteratee to consume the feed
-              val iteratee = Iteratee.foreach[JsValue] { event =>
-                  master ! Start
-              }
-              master ! Start
-              (iteratee,channel)
+  def query(index: String) = WebSocket.async[JsValue] { request => 
+      // send registerquerymessage to master actor 
+
+      val rand = new Random()
+      val identifier = "query"+rand.nextInt()
+      // register test query
+      (master ? InitQueryMessage(index,identifier)).asPromise.map {
+              case QueryInitialised(channel,iteratee) =>
+                // Create an Iteratee to consume the feed
+                (iteratee,channel)
+      }
     }
-  }
 }
